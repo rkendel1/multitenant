@@ -15,12 +15,6 @@ export interface Tenant {
 
 const tenantStorage = new AsyncLocalStorage<Tenant | null>();
 
-export function setCurrentTenant(tenant: Tenant | null): void {
-  // AsyncLocalStorage requires run() to establish context.
-  // This helper is for middleware that uses runWithTenant().
-  throw new Error("Use runWithTenant() to set tenant context");
-}
-
 export function getCurrentTenant(): Tenant | null {
   return tenantStorage.getStore() ?? null;
 }

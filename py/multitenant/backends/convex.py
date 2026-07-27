@@ -20,10 +20,10 @@ class ConvexBackend(TenantBackend):
         self.api_token = getattr(settings, "CONVEX_API_TOKEN", None)
 
     def _call_query(self, function_name: str, args: dict) -> Any:
-        url = f"{self.deployment_url}/api/query"
+        url = self.deployment_url + "/api/query"
         headers = {"Content-Type": "application/json"}
         if self.api_token:
-            headers["Authorization"] = f"******"
+            headers["Authorization"] = "Bearer " + self.api_token
 
         payload = json.dumps({"path": function_name, "args": args}).encode()
         req = urllib.request.Request(url, data=payload, headers=headers)
