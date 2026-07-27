@@ -1,0 +1,50 @@
+{% extends "multitenant/base.html" %}
+
+{% block title %}Logout{% endblock %}
+
+{% block extra_styles %}
+.auth-container {
+    max-width: 400px;
+    margin: 3rem auto;
+}
+
+.auth-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.auth-message {
+    text-align: center;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+}
+
+.btn-group {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.btn-full {
+    flex: 1;
+    padding: 0.75rem;
+    font-size: 1rem;
+}
+{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="card">
+        <h1 class="auth-title">Sign Out</h1>
+        <p class="auth-message">Are you sure you want to sign out?</p>
+        
+        <form method="post" class="btn-group">
+            {% csrf_token %}
+            <a href="/" class="btn btn-secondary btn-full">Cancel</a>
+            <button type="submit" class="btn btn-primary btn-full">Sign Out</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
