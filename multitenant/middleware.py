@@ -6,7 +6,7 @@ from .context import clear_current_tenant, set_current_tenant
 
 
 def _normalized_host(host):
-    return host.split(":")[0].lower().strip()
+    return host.split(":")[0].strip().lower()
 
 
 def resolve_tenant_from_request(request):

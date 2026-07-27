@@ -15,11 +15,12 @@ class AbstractTenant(models.Model):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._original_name = self.name
+        self._original_name = getattr(self, "name", None)
 
     def save(self, *args, **kwargs):
         generated_slug = slugify(self.name)
-        if not self.slug or self.slug == slugify(self._original_name):
+        original_slug = slugify(self._original_name) if self._original_name else None
+        if not self.slug or (original_slug and self.slug == original_slug):
             self.slug = generated_slug
         super().save(*args, **kwargs)
         self._original_name = self.name
