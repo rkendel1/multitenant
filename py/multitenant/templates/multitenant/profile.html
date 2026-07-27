@@ -1,0 +1,131 @@
+{% extends "multitenant/base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block extra_styles %}
+.profile-container {
+    max-width: 600px;
+    margin: 2rem auto;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+.profile-info h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.profile-info p {
+    color: var(--text-muted);
+}
+
+.profile-section {
+    margin-bottom: 2rem;
+}
+
+.profile-section h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.profile-field {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.profile-field:last-child {
+    border-bottom: none;
+}
+
+.profile-field-label {
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.profile-field-value {
+    color: var(--text-color);
+}
+
+.tenant-badge {
+    display: inline-block;
+    background: var(--primary-color);
+    color: var(--white);
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <div class="card">
+        <div class="profile-header">
+            <div class="profile-avatar">
+                {{ user.username|slice:":1"|upper }}
+            </div>
+            <div class="profile-info">
+                <h1>{{ user.username }}</h1>
+                <p>{{ user.email }}</p>
+            </div>
+        </div>
+        
+        <div class="profile-section">
+            <h2>Account Information</h2>
+            <div class="profile-field">
+                <span class="profile-field-label">Username</span>
+                <span class="profile-field-value">{{ user.username }}</span>
+            </div>
+            <div class="profile-field">
+                <span class="profile-field-label">Email</span>
+                <span class="profile-field-value">{{ user.email }}</span>
+            </div>
+            <div class="profile-field">
+                <span class="profile-field-label">Joined</span>
+                <span class="profile-field-value">{{ user.date_joined|date:"F j, Y" }}</span>
+            </div>
+            <div class="profile-field">
+                <span class="profile-field-label">Last Login</span>
+                <span class="profile-field-value">{{ user.last_login|date:"F j, Y, g:i a" }}</span>
+            </div>
+        </div>
+        
+        {% if request.tenant %}
+        <div class="profile-section">
+            <h2>Current Tenant</h2>
+            <div class="profile-field">
+                <span class="profile-field-label">Tenant</span>
+                <span class="tenant-badge">{{ request.tenant.name }}</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

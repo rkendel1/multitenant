@@ -1,0 +1,25 @@
+<header class="header">
+    <a href="/" class="header-brand">
+        {% if request.tenant %}
+            {{ request.tenant.name }}
+        {% else %}
+            Multitenant App
+        {% endif %}
+    </a>
+    
+    <nav class="header-nav">
+        {% if user.is_authenticated %}
+            <div class="header-user">
+                <span class="header-user-name">{{ user.username }}</span>
+                <a href="{% url 'multitenant:profile' %}" class="btn btn-secondary">Profile</a>
+                <form action="{% url 'multitenant:logout' %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary">Logout</button>
+                </form>
+            </div>
+        {% else %}
+            <a href="{% url 'multitenant:login' %}" class="btn btn-secondary">Login</a>
+            <a href="{% url 'multitenant:signup' %}" class="btn btn-primary">Sign Up</a>
+        {% endif %}
+    </nav>
+</header>
