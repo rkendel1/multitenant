@@ -1,0 +1,128 @@
+{% extends "multitenant/base.html" %}
+
+{% block title %}Select Workspace{% endblock %}
+
+{% block extra_styles %}
+.tenant-container {
+    max-width: 500px;
+    margin: 3rem auto;
+}
+
+.tenant-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.tenant-subtitle {
+    text-align: center;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+}
+
+.tenant-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.tenant-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tenant-item:hover {
+    border-color: var(--primary-color);
+    background: var(--white);
+}
+
+.tenant-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.tenant-name {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.tenant-slug {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.tenant-arrow {
+    color: var(--text-muted);
+    font-size: 1.25rem;
+}
+
+.tenant-item:hover .tenant-arrow {
+    color: var(--primary-color);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+}
+
+.empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.create-tenant-link {
+    display: block;
+    text-align: center;
+    margin-top: 1.5rem;
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.create-tenant-link:hover {
+    text-decoration: underline;
+}
+{% endblock %}
+
+{% block content %}
+<div class="tenant-container">
+    <div class="card">
+        <h1 class="tenant-title">Select a workspace</h1>
+        <p class="tenant-subtitle">Choose which workspace you want to access</p>
+        
+        {% if tenants %}
+        <div class="tenant-list">
+            {% for tenant in tenants %}
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="tenant" value="{{ tenant.slug }}">
+                <button type="submit" class="tenant-item">
+                    <div class="tenant-info">
+                        <span class="tenant-name">{{ tenant.name }}</span>
+                        <span class="tenant-slug">{{ tenant.slug }}.{{ base_domain }}</span>
+                    </div>
+                    <span class="tenant-arrow">→</span>
+                </button>
+            </form>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">🏢</div>
+            <p>You don't have access to any workspaces yet.</p>
+        </div>
+        {% endif %}
+        
+        <a href="#" class="create-tenant-link">Create a new workspace</a>
+    </div>
+</div>
+{% endblock %}
