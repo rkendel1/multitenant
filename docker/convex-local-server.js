@@ -172,11 +172,18 @@ const mutationHandlers = {
     if (!tenant) {
       throw new Error(`Tenant not found: ${id}`);
     }
-    if (name) tenant.name = name;
-    if (slug) tenant.slug = slug;
-    tenant.updatedAt = Date.now();
+    // Create a new object to avoid prototype pollution on update
+    const updatedTenant = {
+      _id: tenant._id,
+      name: name || tenant.name,
+      slug: slug || tenant.slug,
+      ownerId: tenant.ownerId,
+      createdAt: tenant.createdAt,
+      updatedAt: Date.now(),
+    };
+    safeSet(store.tenants, id, updatedTenant);
     persistData();
-    return tenant;
+    return updatedTenant;
   },
 
   'tenants:delete': ({ id }) => {
@@ -216,11 +223,18 @@ const mutationHandlers = {
     if (!user) {
       throw new Error(`User not found: ${id}`);
     }
-    if (name) user.name = name;
-    if (email) user.email = email;
-    user.updatedAt = Date.now();
+    // Create a new object to avoid prototype pollution on update
+    const updatedUser = {
+      _id: user._id,
+      email: email || user.email,
+      name: name || user.name,
+      passwordHash: user.passwordHash,
+      createdAt: user.createdAt,
+      updatedAt: Date.now(),
+    };
+    safeSet(store.users, id, updatedUser);
     persistData();
-    return user;
+    return updatedUser;
   },
 
   'memberships:create': ({ userId, tenantId, role }) => {
@@ -244,10 +258,18 @@ const mutationHandlers = {
     if (!membership) {
       throw new Error(`Membership not found: ${key}`);
     }
-    membership.role = role;
-    membership.updatedAt = Date.now();
+    // Create a new object to avoid prototype pollution on update
+    const updatedMembership = {
+      _id: membership._id,
+      userId: membership.userId,
+      tenantId: membership.tenantId,
+      role: role,
+      createdAt: membership.createdAt,
+      updatedAt: Date.now(),
+    };
+    safeSet(store.memberships, key, updatedMembership);
     persistData();
-    return membership;
+    return updatedMembership;
   },
 
   'memberships:delete': ({ userId, tenantId }) => {

@@ -157,7 +157,7 @@ Key variables:
 | `GOOGLE_CLIENT_ID` | - | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | - | Google OAuth secret |
 | `MULTITENANT_ADMIN_EMAIL` | `admin@example.com` | Platform owner email |
-| `MULTITENANT_ADMIN_PASSWORD` | `admin123` | Platform owner password |
+| `MULTITENANT_ADMIN_PASSWORD` | ⚠️ **CHANGE ME** | Platform owner password (must be changed!) |
 
 ## Development Workflows
 
