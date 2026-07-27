@@ -1,0 +1,76 @@
+# =============================================================================
+# Multitenant Node.js Application Dockerfile
+# =============================================================================
+# This Dockerfile builds the JavaScript/TypeScript multitenant application.
+#
+# Build: docker build -f docker/Dockerfile.node -t multitenant-node .
+# Run:   docker run -p 3000:3000 multitenant-node
+# =============================================================================
+
+FROM node:20-alpine AS base
+
+# Install dependencies needed for building native modules
+RUN apk add --no-cache python3 make g++
+
+WORKDIR /app
+
+# =============================================================================
+# Dependencies Stage
+# =============================================================================
+FROM base AS deps
+
+# Copy package files
+COPY js/package*.json ./js/
+
+# Install dependencies
+WORKDIR /app/js
+RUN npm ci --include=dev
+
+# =============================================================================
+# Build Stage
+# =============================================================================
+FROM deps AS builder
+
+WORKDIR /app/js
+
+# Copy source code
+COPY js/ ./
+
+# Build TypeScript
+RUN npm run build
+
+# =============================================================================
+# Production Stage
+# =============================================================================
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 multitenant
+
+# Copy built application
+COPY --from=builder /app/js/dist ./js/dist
+COPY --from=builder /app/js/package*.json ./js/
+COPY --from=builder /app/js/node_modules ./js/node_modules
+
+# Set ownership
+RUN chown -R multitenant:nodejs /app
+
+USER multitenant
+
+WORKDIR /app/js
+
+# Environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+# Start the application
+CMD ["node", "dist/index.js"]

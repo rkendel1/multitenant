@@ -18,6 +18,75 @@ each project does not need to recreate tenant context handling.
 |---------------|-------------------------------|
 | Python/Django | `pip install ./py`            |
 | Node/TS       | `npm install ./js`            |
+| Docker        | `docker compose up -d`        |
+
+---
+
+## 🐳 Docker (Batteries Included)
+
+Get up and running instantly with Docker Compose. This setup includes PostgreSQL, local Convex backend, and everything you need.
+
+### Quick Start
+
+```bash
+# 1. Copy environment configuration
+cp .env.example .env
+
+# 2. Start all services
+docker compose up -d
+
+# 3. View logs
+docker compose logs -f
+```
+
+### Available Services
+
+| Service | Port | Description |
+|---------|------|-------------|
+| PostgreSQL | 5432 | Primary database |
+| Convex Local | 3210 | Local Convex development server |
+| Node.js App | 3000 | JavaScript/TypeScript app (profile: `node`) |
+| Django App | 8000 | Python app (profile: `python`) |
+| Redis | 6379 | Cache/sessions (profile: `cache`) |
+| Adminer | 8080 | Database admin UI (profile: `admin`) |
+
+### Profiles
+
+Use Docker Compose profiles to start specific combinations:
+
+```bash
+# Backend services only (default)
+docker compose up -d
+
+# With Node.js application
+docker compose --profile node up -d
+
+# With Python/Django application
+docker compose --profile python up -d
+
+# Everything (all services)
+docker compose --profile full up -d
+```
+
+### Configuration
+
+Copy `.env.example` to `.env` and configure:
+
+```bash
+cp .env.example .env
+```
+
+Key environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `POSTGRES_USER` | `multitenant` | Database username |
+| `POSTGRES_PASSWORD` | `multitenant_secret` | Database password |
+| `MULTITENANT_BASE_DOMAIN` | `localhost` | Base domain for tenancy |
+| `GITHUB_CLIENT_ID` | - | GitHub OAuth client ID |
+| `GOOGLE_CLIENT_ID` | - | Google OAuth client ID |
+
+See [`docker/README.md`](docker/README.md) for complete documentation.
 
 ---
 

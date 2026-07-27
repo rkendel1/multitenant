@@ -1,0 +1,37 @@
+# =============================================================================
+# Local Convex Development Server Dockerfile
+# =============================================================================
+# This provides a mock/local development server for testing Convex integration.
+# Note: For production, use Convex Cloud (https://convex.dev)
+#
+# This is a simple Express-based mock that simulates the Convex HTTP API
+# for local development and testing purposes.
+# =============================================================================
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies for building
+RUN apk add --no-cache python3 make g++
+
+# Initialize package.json
+RUN npm init -y && \
+    npm install express cors uuid
+
+# Copy the mock server
+COPY convex-local-server.js ./server.js
+
+# Create data directory
+RUN mkdir -p /app/data
+
+ENV CONVEX_PORT=3210
+ENV NODE_ENV=development
+
+EXPOSE 3210
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3210/health || exit 1
+
+CMD ["node", "server.js"]
