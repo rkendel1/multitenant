@@ -155,8 +155,9 @@ export class GoogleOAuth implements OAuthProvider {
   }
 
   async getUserInfo(accessToken: string): Promise<OAuthUserInfo> {
+    const authHeader = 'Bearer ' + accessToken;
     const res = await fetch(GoogleOAuth.USER_INFO_URL, {
-      headers: { Authorization: `****** },
+      headers: { Authorization: authHeader },
     });
 
     const userData = await res.json();

@@ -3,6 +3,15 @@
 Reusable multitenancy utilities available in **Python** and **JavaScript/TypeScript** so
 each project does not need to recreate tenant context handling.
 
+## Features
+
+- 🏢 **Multi-tenant architecture** - Subdomain-based tenancy (tenant.yourapp.com)
+- 🔐 **Authentication** - Login, signup, logout screens with OAuth support
+- 🔑 **OAuth Providers** - GitHub and Google OAuth out of the box
+- 👥 **Role-based access** - Standard roles (viewer, member, admin, owner, platform_owner)
+- ⚙️ **CLI Wizard** - Interactive project configuration with `.env` file generation
+- 🎨 **Ready-to-use UI** - Styled React components and Django templates
+
 ## Choose Your Runtime
 
 | Need          | Install                       |
@@ -20,24 +29,53 @@ Located in `py/`.
 pip install -e py/
 ```
 
+### Quick Start
+
+Run the configuration wizard to set up your project:
+
+```bash
+python manage.py configure_multitenant
+```
+
+This will:
+1. Guide you through backend selection (PostgreSQL/Convex)
+2. Configure login methods (Email, GitHub, Google)
+3. Set up subdomain-based multitenancy
+4. Generate a `.env` file with all required settings
+
 ### Configuration (settings.py)
 
 ```python
+import os
+
 INSTALLED_APPS = [..., "multitenant"]
-
-# Option 1: custom resolver
-MULTITENANT_TENANT_RESOLVER = lambda host, request: my_lookup(host)
-
-# Option 2: model-based lookup (default backend is PostgreSQL via ORM)
-MULTITENANT_TENANT_MODEL = "tenants.Tenant"
-MULTITENANT_DOMAIN_LOOKUP = "domains__domain"  # default
 
 # Backend selection
 MULTITENANT_BACKEND = "multitenant.backends.postgres.PostgresBackend"
-# or Convex
-MULTITENANT_BACKEND = "multitenant.backends.convex.ConvexBackend"
-CONVEX_DEPLOYMENT_URL = "https://your-deployment.convex.cloud"
-CONVEX_API_TOKEN = "..."  # optional
+
+# Subdomain-based multitenancy
+MULTITENANT_BASE_DOMAIN = os.environ.get("MULTITENANT_BASE_DOMAIN", "localhost")
+
+# Tenant model configuration
+MULTITENANT_TENANT_MODEL = "tenants.Tenant"
+MULTITENANT_SLUG_FIELD = "slug"  # Field used for subdomain lookup
+
+# Login methods
+MULTITENANT_LOGIN_METHODS = ["email", "github", "google"]
+
+# OAuth Configuration
+MULTITENANT_OAUTH_GITHUB = {
+    "client_id": os.environ.get("GITHUB_CLIENT_ID", ""),
+    "client_secret": os.environ.get("GITHUB_CLIENT_SECRET", ""),
+}
+
+MULTITENANT_OAUTH_GOOGLE = {
+    "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
+    "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
+}
+
+# Platform owner
+MULTITENANT_ADMIN_EMAIL = os.environ.get("MULTITENANT_ADMIN_EMAIL")
 ```
 
 ### Usage
@@ -63,29 +101,38 @@ urlpatterns = [
 ```
 
 Available URLs:
-- `/auth/login/` - Login page
+- `/auth/login/` - Login page (with OAuth buttons)
 - `/auth/signup/` - Registration page
 - `/auth/logout/` - Logout confirmation page
-- `/auth/profile/` - User profile page (requires login)
+- `/auth/profile/` - User profile page
+- `/auth/select-tenant/` - Tenant/workspace selector
+- `/auth/oauth/<provider>/` - OAuth login initiation
+- `/auth/oauth/<provider>/callback/` - OAuth callback
 
-Configure redirects in settings:
+### Roles
+
+Standard roles are available via `multitenant.roles`:
 
 ```python
-MULTITENANT_LOGIN_REDIRECT_URL = "/"
-MULTITENANT_LOGOUT_REDIRECT_URL = "/"
-LOGIN_URL = "multitenant:login"
+from multitenant.roles import STANDARD_ROLES, check_permission
+
+# Available roles: viewer, member, admin, owner, platform_owner
+if check_permission(user.role, "manage:users"):
+    # User can manage users
+    pass
 ```
 
-### Configuration Wizard
+### Platform Setup
 
-Run the interactive configuration wizard:
+Initialize the platform with the default admin user:
 
 ```bash
-python manage.py configure_multitenant
-```
+# Set credentials via environment
+export MULTITENANT_ADMIN_EMAIL=admin@example.com
+export MULTITENANT_ADMIN_PASSWORD=your-secure-password
 
-Options:
-- `--output <file>` - Write configuration to a file instead of stdout
+python manage.py setup_platform
+```
 
 ---
 
@@ -97,10 +144,24 @@ Located in `js/`.
 cd js && npm install && npm run build
 ```
 
+### Quick Start
+
+Run the configuration wizard:
+
+```bash
+npx @multitenant/core configure
+```
+
+This will:
+1. Guide you through backend and framework selection
+2. Configure login methods (Email, GitHub, Google)
+3. Set up subdomain-based multitenancy
+4. Generate a `.env` file with all required settings
+
 ### Backends
 
 ```ts
-import { PostgresBackend, ConvexBackend, tenantMiddleware, getCurrentTenant } from "@multitenant/core";
+import { PostgresBackend, ConvexBackend, tenantMiddleware } from "@multitenant/core";
 import { Pool } from "pg";
 
 // PostgreSQL
@@ -126,8 +187,6 @@ app.get("/", (req, res) => {
 
 ### React Authentication Components
 
-The package includes React components for authentication with built-in styling.
-
 ```tsx
 import {
   AuthProvider,
@@ -135,30 +194,40 @@ import {
   LoginScreen,
   SignupScreen,
   LogoutScreen,
+  TenantSelector,
 } from "@multitenant/core";
 
 function App() {
   return (
-    <AuthProvider apiBaseUrl="/api/auth">
+    <AuthProvider 
+      apiBaseUrl="/api/auth"
+      loginMethods={['email', 'github', 'google']}
+      baseDomain="yourapp.com"
+    >
       <Header brandName="My App" />
       {/* Your routes */}
     </AuthProvider>
   );
 }
 
-// Login page
+// Login page with OAuth
 function LoginPage() {
-  return <LoginScreen onSuccess={() => navigate("/")} />;
+  return (
+    <LoginScreen 
+      loginMethods={['email', 'github', 'google']}
+      onSuccess={() => navigate("/")} 
+    />
+  );
 }
 
-// Signup page
-function SignupPage() {
-  return <SignupScreen onSuccess={() => navigate("/")} />;
-}
-
-// Logout page
-function LogoutPage() {
-  return <LogoutScreen onSuccess={() => navigate("/")} />;
+// Tenant selector (after login)
+function SelectWorkspace() {
+  return (
+    <TenantSelector 
+      baseDomain="yourapp.com"
+      onSelect={(tenant) => console.log('Selected:', tenant)}
+    />
+  );
 }
 ```
 
@@ -167,43 +236,83 @@ function LogoutPage() {
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `apiBaseUrl` | `string` | `/api/auth` | Base URL for auth API endpoints |
+| `loginMethods` | `('email'\|'github'\|'google')[]` | `['email']` | Enabled login methods |
+| `baseDomain` | `string` | - | Base domain for subdomain redirects |
 | `onLoginSuccess` | `(user) => void` | - | Callback when login succeeds |
 | `onLogoutSuccess` | `() => void` | - | Callback when logout succeeds |
-
-#### Header Props
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `brandName` | `string` | `Multitenant App` | Brand name to display |
-| `tenant` | `{ name: string }` | - | Current tenant info |
-| `loginLink` | `string` | `/login` | Link to login page |
-| `signupLink` | `string` | `/signup` | Link to signup page |
+| `onTenantSelect` | `(tenant) => void` | - | Callback when tenant is selected |
 
 #### useAuth Hook
 
 ```ts
 const {
-  user,           // Current user or null
-  isLoading,      // Loading state
-  isAuthenticated,// Whether user is logged in
-  login,          // Login function
-  signup,         // Signup function
-  logout,         // Logout function
+  user,              // Current user or null
+  currentTenant,     // Current tenant or null
+  availableTenants,  // List of user's tenants
+  isLoading,         // Loading state
+  isAuthenticated,   // Whether user is logged in
+  login,             // Email/password login
+  loginWithOAuth,    // OAuth login (redirects to provider)
+  signup,            // Create account
+  logout,            // Sign out
+  selectTenant,      // Select and redirect to tenant
 } = useAuth();
 ```
 
-### Configuration Wizard (CLI)
+### Subdomain Utilities
 
-Run the interactive configuration wizard:
+```ts
+import { parseHost, buildTenantUrl, getCurrentSubdomain } from "@multitenant/core";
 
-```bash
-npx @multitenant/core configure
+const config = { baseDomain: "yourapp.com" };
+
+// Parse current host
+const parsed = parseHost("tenant1.yourapp.com", config);
+// { subdomain: "tenant1", baseDomain: "yourapp.com", isValid: true, isPlatform: false }
+
+// Build tenant URL
+const url = buildTenantUrl("tenant1", config);
+// "https://tenant1.yourapp.com"
+
+// Get current subdomain (in browser)
+const subdomain = getCurrentSubdomain(config);
 ```
 
-Or after installation:
+### Roles
 
-```bash
-multitenant-configure
+```ts
+import { STANDARD_ROLES, checkPermission, RoleLevel } from "@multitenant/core";
+
+// Available roles: viewer, member, admin, owner, platform_owner
+if (checkPermission('admin', 'manage:users')) {
+  // Admin can manage users
+}
+```
+
+---
+
+## Environment Variables
+
+The CLI wizards generate a `.env` file with these variables:
+
+```env
+# Database
+DATABASE_URL=******localhost:5432/dbname
+
+# Subdomain Configuration
+MULTITENANT_BASE_DOMAIN=yourapp.com
+
+# OAuth - GitHub
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+
+# OAuth - Google
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Platform Owner
+MULTITENANT_ADMIN_EMAIL=admin@example.com
+MULTITENANT_ADMIN_PASSWORD=your-secure-password
 ```
 
 ---
