@@ -1,0 +1,60 @@
+# =============================================================================
+# Docker Ignore File
+# =============================================================================
+# Files and directories to exclude from Docker build context.
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!docker/README.md
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.egg-info/
+**/dist/
+**/build/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.tox/
+**/venv/
+**/.venv/
+
+# Node.js
+**/node_modules/
+**/dist/
+**/*.tgz
+**/coverage/
+**/.nyc_output/
+
+# Tests
+**/tests/
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+
+# Logs
+*.log
+
+# Docker data
+docker/data/
