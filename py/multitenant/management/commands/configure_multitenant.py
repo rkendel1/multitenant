@@ -17,6 +17,12 @@ class Command(BaseCommand):
         "3": ("Custom", None),
     }
 
+    LOGIN_METHODS = {
+        "1": ("Email/Password", "email"),
+        "2": ("GitHub OAuth", "github"),
+        "3": ("Google OAuth", "google"),
+    }
+
     def add_arguments(self, parser):
         parser.add_argument(
             "--no-color",
@@ -27,6 +33,12 @@ class Command(BaseCommand):
             "--output",
             type=str,
             help="Output file path for generated settings (default: stdout)",
+        )
+        parser.add_argument(
+            "--env-file",
+            type=str,
+            default=".env",
+            help="Output file path for generated .env file (default: .env)",
         )
 
     def handle(self, *args, **options):
@@ -48,11 +60,20 @@ class Command(BaseCommand):
         # Step 3: Tenant model configuration
         config.update(self._configure_tenant_model())
 
-        # Step 4: Auth configuration
+        # Step 4: Auth configuration (including login methods)
         config.update(self._configure_auth())
 
-        # Step 5: Generate settings
+        # Step 5: Subdomain configuration
+        config.update(self._configure_subdomain())
+
+        # Step 6: Platform owner configuration
+        config.update(self._configure_platform_owner())
+
+        # Step 7: Generate settings
         settings_code = self._generate_settings(config)
+
+        # Step 8: Generate .env file
+        env_code = self._generate_env_file(config)
 
         self.stdout.write("\n" + "=" * 60)
         self.stdout.write(self.style.SUCCESS("  Generated Configuration"))
@@ -66,6 +87,17 @@ class Command(BaseCommand):
             )
         else:
             self.stdout.write(settings_code)
+
+        # Write .env file
+        env_path = Path(options.get("env_file", ".env"))
+        self.stdout.write("\n" + "-" * 60)
+        self.stdout.write(self.style.SUCCESS("  Generated .env File"))
+        self.stdout.write("-" * 60 + "\n")
+        self.stdout.write(env_code)
+        
+        if self._confirm(f"\nWrite .env file to {env_path}?", default=True):
+            env_path.write_text(env_code)
+            self.stdout.write(self.style.SUCCESS(f"✓ .env file written to: {env_path}"))
 
         self.stdout.write("\n" + self.style.SUCCESS("Configuration complete!"))
         self._print_next_steps()
@@ -188,7 +220,7 @@ class Command(BaseCommand):
 
     def _configure_auth(self):
         """Configure authentication settings."""
-        self.stdout.write(self.style.HTTP_INFO("\n[4/5] Authentication Configuration\n"))
+        self.stdout.write(self.style.HTTP_INFO("\n[4/7] Authentication Configuration\n"))
 
         config = {}
 
@@ -196,6 +228,22 @@ class Command(BaseCommand):
         config["include_auth"] = use_auth
 
         if use_auth:
+            # Login methods selection
+            self.stdout.write("\nSelect login methods to enable (comma-separated, e.g., 1,2,3):")
+            for key, (label, _) in self.LOGIN_METHODS.items():
+                self.stdout.write(f"  {key}. {label}")
+            
+            methods_input = self._prompt("Login methods", default="1")
+            selected_methods = []
+            for choice in methods_input.split(","):
+                choice = choice.strip()
+                if choice in self.LOGIN_METHODS:
+                    _, method = self.LOGIN_METHODS[choice]
+                    selected_methods.append(method)
+            
+            config["login_methods"] = selected_methods if selected_methods else ["email"]
+            self.stdout.write(self.style.SUCCESS(f"✓ Enabled: {', '.join(config['login_methods'])}"))
+
             config["login_redirect"] = self._prompt(
                 "Login redirect URL",
                 default="/",
@@ -204,6 +252,43 @@ class Command(BaseCommand):
                 "Logout redirect URL",
                 default="/",
             )
+
+        return config
+
+    def _configure_subdomain(self):
+        """Configure subdomain-based multitenancy."""
+        self.stdout.write(self.style.HTTP_INFO("\n[5/7] Subdomain Configuration\n"))
+
+        config = {}
+
+        use_subdomain = self._confirm("Use subdomain-based multitenancy (subdomain.domain.app)?", default=True)
+        config["use_subdomain"] = use_subdomain
+
+        if use_subdomain:
+            config["base_domain"] = self._prompt(
+                "Base domain (e.g., myapp.com)",
+                default="localhost",
+            )
+            self.stdout.write(self.style.SUCCESS(f"✓ Tenants will be at: <tenant>.{config['base_domain']}"))
+
+        return config
+
+    def _configure_platform_owner(self):
+        """Configure platform owner settings."""
+        self.stdout.write(self.style.HTTP_INFO("\n[6/7] Platform Owner Configuration\n"))
+
+        config = {}
+
+        config["admin_email"] = self._prompt(
+            "Platform owner email",
+            default="admin@example.com",
+        )
+        
+        self.stdout.write(
+            self.style.WARNING(
+                "Note: Set MULTITENANT_ADMIN_PASSWORD in your .env file for security."
+            )
+        )
 
         return config
 
@@ -249,6 +334,39 @@ class Command(BaseCommand):
             lines.append(f'MULTITENANT_LOGIN_REDIRECT_URL = "{config.get("login_redirect", "/")}"')
             lines.append(f'MULTITENANT_LOGOUT_REDIRECT_URL = "{config.get("logout_redirect", "/")}"')
             lines.append('LOGIN_URL = "multitenant:login"')
+            
+            # Login methods
+            login_methods = config.get("login_methods", ["email"])
+            lines.append(f'MULTITENANT_LOGIN_METHODS = {login_methods}')
+            
+            # OAuth settings references
+            if "github" in login_methods:
+                lines.append("")
+                lines.append("# GitHub OAuth (load from environment)")
+                lines.append('MULTITENANT_OAUTH_GITHUB = {')
+                lines.append('    "client_id": os.environ.get("GITHUB_CLIENT_ID", ""),')
+                lines.append('    "client_secret": os.environ.get("GITHUB_CLIENT_SECRET", ""),')
+                lines.append('}')
+            
+            if "google" in login_methods:
+                lines.append("")
+                lines.append("# Google OAuth (load from environment)")
+                lines.append('MULTITENANT_OAUTH_GOOGLE = {')
+                lines.append('    "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),')
+                lines.append('    "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),')
+                lines.append('}')
+
+        # Subdomain settings
+        if config.get("use_subdomain"):
+            lines.append("")
+            lines.append("# Subdomain-based Multitenancy")
+            lines.append(f'MULTITENANT_BASE_DOMAIN = os.environ.get("MULTITENANT_BASE_DOMAIN", "{config.get("base_domain", "localhost")}")')
+
+        # Platform owner
+        if config.get("admin_email"):
+            lines.append("")
+            lines.append("# Platform Owner")
+            lines.append(f'MULTITENANT_ADMIN_EMAIL = os.environ.get("MULTITENANT_ADMIN_EMAIL", "{config.get("admin_email")}")')
 
         # Middleware
         lines.append("")
@@ -257,12 +375,99 @@ class Command(BaseCommand):
 
         return "\n".join(lines)
 
+    def _generate_env_file(self, config):
+        """Generate .env file content from configuration."""
+        lines = [
+            "# =============================================================================",
+            "# Multitenant Configuration",
+            "# Generated by: python manage.py configure_multitenant",
+            "# =============================================================================",
+            "",
+            "# -----------------------------------------------------------------------------",
+            "# Django Settings",
+            "# -----------------------------------------------------------------------------",
+            "SECRET_KEY=your-secret-key-here",
+            "DEBUG=True",
+            "ALLOWED_HOSTS=localhost,127.0.0.1",
+            "",
+        ]
+
+        # Database settings
+        if "postgres" in config.get("backend", "").lower():
+            lines.extend([
+                "# -----------------------------------------------------------------------------",
+                "# Database (PostgreSQL)",
+                "# -----------------------------------------------------------------------------",
+                "DATABASE_URL=******localhost:5432/dbname",
+                "",
+            ])
+        
+        # Convex settings
+        if config.get("convex_url"):
+            lines.extend([
+                "# -----------------------------------------------------------------------------",
+                "# Convex Configuration",
+                "# -----------------------------------------------------------------------------",
+                f"CONVEX_DEPLOYMENT_URL={config.get('convex_url', 'https://your-deployment.convex.cloud')}",
+                "CONVEX_API_TOKEN=your-convex-api-token-here",
+                "",
+            ])
+
+        # Subdomain settings
+        if config.get("use_subdomain"):
+            lines.extend([
+                "# -----------------------------------------------------------------------------",
+                "# Subdomain Configuration",
+                "# -----------------------------------------------------------------------------",
+                f"MULTITENANT_BASE_DOMAIN={config.get('base_domain', 'localhost')}",
+                "",
+            ])
+
+        # OAuth settings
+        login_methods = config.get("login_methods", [])
+        if "github" in login_methods or "google" in login_methods:
+            lines.extend([
+                "# -----------------------------------------------------------------------------",
+                "# OAuth Configuration",
+                "# -----------------------------------------------------------------------------",
+            ])
+            
+            if "github" in login_methods:
+                lines.extend([
+                    "# GitHub OAuth - Get credentials at: https://github.com/settings/developers",
+                    "GITHUB_CLIENT_ID=your-github-client-id",
+                    "GITHUB_CLIENT_SECRET=your-github-client-secret",
+                    "",
+                ])
+            
+            if "google" in login_methods:
+                lines.extend([
+                    "# Google OAuth - Get credentials at: https://console.cloud.google.com/apis/credentials",
+                    "GOOGLE_CLIENT_ID=your-google-client-id",
+                    "GOOGLE_CLIENT_SECRET=your-google-client-secret",
+                    "",
+                ])
+
+        # Platform owner
+        lines.extend([
+            "# -----------------------------------------------------------------------------",
+            "# Platform Owner (Initial Admin User)",
+            "# -----------------------------------------------------------------------------",
+            f"MULTITENANT_ADMIN_EMAIL={config.get('admin_email', 'admin@example.com')}",
+            "MULTITENANT_ADMIN_PASSWORD=your-secure-password-here",
+            "",
+        ])
+
+        return "\n".join(lines)
+
     def _print_next_steps(self):
         """Print next steps for the user."""
         self.stdout.write("\n" + self.style.HTTP_INFO("Next Steps:"))
-        self.stdout.write("  1. Add the generated configuration to your settings.py")
-        self.stdout.write("  2. Add multitenant URLs to your urls.py:")
+        self.stdout.write("  1. Review and update your .env file with actual credentials")
+        self.stdout.write("  2. Add the generated configuration to your settings.py")
+        self.stdout.write("  3. Add multitenant URLs to your urls.py:")
         self.stdout.write('     path("auth/", include("multitenant.urls"))')
-        self.stdout.write("  3. Run migrations: python manage.py migrate")
-        self.stdout.write("  4. Create your tenant model if needed")
+        self.stdout.write("  4. Run migrations: python manage.py migrate")
+        self.stdout.write("  5. Create your tenant model if needed")
+        self.stdout.write("  6. Set up platform owner: python manage.py setup_platform")
         self.stdout.write("")

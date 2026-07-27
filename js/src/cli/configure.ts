@@ -5,6 +5,8 @@
  */
 
 import * as readline from 'node:readline';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 const BACKENDS = {
   '1': { label: 'PostgreSQL', value: 'PostgresBackend' },
@@ -12,15 +14,26 @@ const BACKENDS = {
   '3': { label: 'Custom', value: null },
 };
 
+const LOGIN_METHODS = {
+  '1': { label: 'Email/Password', value: 'email' },
+  '2': { label: 'GitHub OAuth', value: 'github' },
+  '3': { label: 'Google OAuth', value: 'google' },
+};
+
 interface Config {
   backend: string;
   postgresPool?: boolean;
+  databaseUrl?: string;
   convexUrl?: string;
   convexToken?: string;
   useReact?: boolean;
   includeAuth?: boolean;
+  loginMethods?: string[];
   apiBaseUrl?: string;
   typescript?: boolean;
+  useSubdomain?: boolean;
+  baseDomain?: string;
+  adminEmail?: string;
 }
 
 class ConfigureWizard {
@@ -51,11 +64,20 @@ class ConfigureWizard {
       // Step 3: Framework configuration
       await this.configureFramework();
 
-      // Step 4: Auth configuration
+      // Step 4: Auth configuration (including login methods)
       await this.configureAuth();
 
-      // Step 5: Generate configuration
+      // Step 5: Subdomain configuration
+      await this.configureSubdomain();
+
+      // Step 6: Platform owner configuration
+      await this.configurePlatformOwner();
+
+      // Step 7: Generate configuration
       this.generateConfig();
+
+      // Step 8: Generate and write .env file
+      await this.generateEnvFile();
 
       this.printNextSteps();
     } finally {
@@ -90,7 +112,7 @@ class ConfigureWizard {
   }
 
   private async chooseBackend(): Promise<void> {
-    console.log('\x1b[36m[1/4] Choose Backend\x1b[0m\n');
+    console.log('\x1b[36m[1/7] Choose Backend\x1b[0m\n');
     console.log('Which backend will you use?');
 
     for (const [key, { label }] of Object.entries(BACKENDS)) {
@@ -116,16 +138,21 @@ class ConfigureWizard {
   }
 
   private async configurePostgres(): Promise<void> {
-    console.log('\x1b[36m[2/4] PostgreSQL Configuration\x1b[0m\n');
+    console.log('\x1b[36m[2/7] PostgreSQL Configuration\x1b[0m\n');
 
     this.config.postgresPool = await this.confirm(
       'Will you provide a pg Pool instance?',
       true
     );
+    
+    this.config.databaseUrl = await this.prompt(
+      'Database URL (or press Enter for default)',
+      '******localhost:5432/dbname'
+    );
   }
 
   private async configureConvex(): Promise<void> {
-    console.log('\x1b[36m[2/4] Convex Configuration\x1b[0m\n');
+    console.log('\x1b[36m[2/7] Convex Configuration\x1b[0m\n');
 
     this.config.convexUrl = await this.prompt(
       'Convex deployment URL',
@@ -139,7 +166,7 @@ class ConfigureWizard {
   }
 
   private async configureFramework(): Promise<void> {
-    console.log('\x1b[36m[3/4] Framework Configuration\x1b[0m\n');
+    console.log('\x1b[36m[3/7] Framework Configuration\x1b[0m\n');
 
     this.config.useReact = await this.confirm(
       'Will you use React for the frontend?',
@@ -153,7 +180,7 @@ class ConfigureWizard {
   }
 
   private async configureAuth(): Promise<void> {
-    console.log('\x1b[36m[4/4] Authentication Configuration\x1b[0m\n');
+    console.log('\x1b[36m[4/7] Authentication Configuration\x1b[0m\n');
 
     this.config.includeAuth = await this.confirm(
       'Include authentication components (login/signup/logout)?',
@@ -161,11 +188,57 @@ class ConfigureWizard {
     );
 
     if (this.config.includeAuth) {
+      // Login methods selection
+      console.log('\nSelect login methods to enable (comma-separated, e.g., 1,2,3):');
+      for (const [key, { label }] of Object.entries(LOGIN_METHODS)) {
+        console.log(`  ${key}. ${label}`);
+      }
+      
+      const methodsInput = await this.prompt('Login methods', '1');
+      const selectedMethods: string[] = [];
+      for (const choice of methodsInput.split(',')) {
+        const trimmed = choice.trim();
+        if (trimmed in LOGIN_METHODS) {
+          selectedMethods.push(LOGIN_METHODS[trimmed as keyof typeof LOGIN_METHODS].value);
+        }
+      }
+      
+      this.config.loginMethods = selectedMethods.length > 0 ? selectedMethods : ['email'];
+      console.log(`\x1b[32m✓ Enabled: ${this.config.loginMethods.join(', ')}\x1b[0m\n`);
+
       this.config.apiBaseUrl = await this.prompt(
         'API base URL for auth endpoints',
         '/api/auth'
       );
     }
+  }
+
+  private async configureSubdomain(): Promise<void> {
+    console.log('\x1b[36m[5/7] Subdomain Configuration\x1b[0m\n');
+
+    this.config.useSubdomain = await this.confirm(
+      'Use subdomain-based multitenancy (subdomain.domain.app)?',
+      true
+    );
+
+    if (this.config.useSubdomain) {
+      this.config.baseDomain = await this.prompt(
+        'Base domain (e.g., myapp.com)',
+        'localhost'
+      );
+      console.log(`\x1b[32m✓ Tenants will be at: <tenant>.${this.config.baseDomain}\x1b[0m\n`);
+    }
+  }
+
+  private async configurePlatformOwner(): Promise<void> {
+    console.log('\x1b[36m[6/7] Platform Owner Configuration\x1b[0m\n');
+
+    this.config.adminEmail = await this.prompt(
+      'Platform owner email',
+      'admin@example.com'
+    );
+
+    console.log('\x1b[33mNote: Set MULTITENANT_ADMIN_PASSWORD in your .env file for security.\x1b[0m');
   }
 
   private generateConfig(): void {
@@ -223,11 +296,17 @@ class ConfigureWizard {
 
       const reactLines: string[] = [];
       reactLines.push('// React app setup');
-      reactLines.push(`import { AuthProvider, Header, LoginScreen, SignupScreen } from '@multitenant/core/components';`);
+      reactLines.push(`import { AuthProvider, Header, LoginScreen, SignupScreen, TenantSelector } from '@multitenant/core/components';`);
       reactLines.push('');
       reactLines.push('function App() {');
       reactLines.push('  return (');
-      reactLines.push(`    <AuthProvider apiBaseUrl="${this.config.apiBaseUrl}">`);
+      reactLines.push(`    <AuthProvider`);
+      reactLines.push(`      apiBaseUrl="${this.config.apiBaseUrl}"`);
+      reactLines.push(`      loginMethods={${JSON.stringify(this.config.loginMethods || ['email'])}}`);
+      if (this.config.useSubdomain && this.config.baseDomain) {
+        reactLines.push(`      baseDomain="${this.config.baseDomain}"`);
+      }
+      reactLines.push('    >');
       reactLines.push('      <Header brandName="My App" />');
       reactLines.push('      {/* Your routes here */}');
       reactLines.push('    </AuthProvider>');
@@ -237,21 +316,125 @@ class ConfigureWizard {
       console.log(`// File: App.${ext}x`);
       console.log(reactLines.join('\n'));
     }
+  }
+
+  private async generateEnvFile(): Promise<void> {
+    console.log('\n' + '='.repeat(60));
+    console.log('  Generated .env File');
+    console.log('='.repeat(60) + '\n');
+
+    const lines: string[] = [
+      '# =============================================================================',
+      '# Multitenant Configuration',
+      '# Generated by: npx @multitenant/core configure',
+      '# =============================================================================',
+      '',
+      '# -----------------------------------------------------------------------------',
+      '# Node Environment',
+      '# -----------------------------------------------------------------------------',
+      'NODE_ENV=development',
+      'PORT=3000',
+      '',
+    ];
+
+    // Database settings
+    if (this.config.backend === 'PostgresBackend') {
+      lines.push(
+        '# -----------------------------------------------------------------------------',
+        '# Database (PostgreSQL)',
+        '# -----------------------------------------------------------------------------',
+        `DATABASE_URL=${this.config.databaseUrl || '******localhost:5432/dbname'}`,
+        '',
+      );
+    }
+
+    // Convex settings
+    if (this.config.backend === 'ConvexBackend') {
+      lines.push(
+        '# -----------------------------------------------------------------------------',
+        '# Convex Configuration',
+        '# -----------------------------------------------------------------------------',
+        `CONVEX_DEPLOYMENT_URL=${this.config.convexUrl || 'https://your-deployment.convex.cloud'}`,
+        'CONVEX_API_TOKEN=your-convex-api-token-here',
+        '',
+      );
+    }
+
+    // Subdomain settings
+    if (this.config.useSubdomain) {
+      lines.push(
+        '# -----------------------------------------------------------------------------',
+        '# Subdomain Configuration',
+        '# -----------------------------------------------------------------------------',
+        `MULTITENANT_BASE_DOMAIN=${this.config.baseDomain || 'localhost'}`,
+        '',
+      );
+    }
+
+    // OAuth settings
+    const loginMethods = this.config.loginMethods || [];
+    if (loginMethods.includes('github') || loginMethods.includes('google')) {
+      lines.push(
+        '# -----------------------------------------------------------------------------',
+        '# OAuth Configuration',
+        '# -----------------------------------------------------------------------------',
+      );
+
+      if (loginMethods.includes('github')) {
+        lines.push(
+          '# GitHub OAuth - Get credentials at: https://github.com/settings/developers',
+          'GITHUB_CLIENT_ID=your-github-client-id',
+          'GITHUB_CLIENT_SECRET=your-github-client-secret',
+          '',
+        );
+      }
+
+      if (loginMethods.includes('google')) {
+        lines.push(
+          '# Google OAuth - Get credentials at: https://console.cloud.google.com/apis/credentials',
+          'GOOGLE_CLIENT_ID=your-google-client-id',
+          'GOOGLE_CLIENT_SECRET=your-google-client-secret',
+          '',
+        );
+      }
+    }
+
+    // Platform owner
+    lines.push(
+      '# -----------------------------------------------------------------------------',
+      '# Platform Owner (Initial Admin User)',
+      '# -----------------------------------------------------------------------------',
+      `MULTITENANT_ADMIN_EMAIL=${this.config.adminEmail || 'admin@example.com'}`,
+      'MULTITENANT_ADMIN_PASSWORD=your-secure-password-here',
+      '',
+    );
+
+    const envContent = lines.join('\n');
+    console.log(envContent);
+
+    // Ask to write file
+    const writeFile = await this.confirm('\nWrite .env file to current directory?', true);
+    if (writeFile) {
+      const envPath = path.join(process.cwd(), '.env');
+      fs.writeFileSync(envPath, envContent);
+      console.log(`\x1b[32m✓ .env file written to: ${envPath}\x1b[0m`);
+    }
 
     console.log('\n\x1b[32mConfiguration complete!\x1b[0m');
   }
 
   private printNextSteps(): void {
     console.log('\n\x1b[36mNext Steps:\x1b[0m');
-    console.log('  1. Install the package: npm install @multitenant/core');
+    console.log('  1. Review and update your .env file with actual credentials');
+    console.log('  2. Install the package: npm install @multitenant/core');
     if (this.config.backend === 'PostgresBackend') {
-      console.log('  2. Install pg: npm install pg');
+      console.log('  3. Install pg: npm install pg');
     }
     if (this.config.useReact) {
-      console.log('  3. Install React: npm install react react-dom');
+      console.log('  4. Install React: npm install react react-dom');
     }
-    console.log('  4. Copy the generated configuration to your project');
-    console.log('  5. Set up your environment variables');
+    console.log('  5. Copy the generated configuration to your project');
+    console.log('  6. Set up your database and run migrations');
     console.log('');
   }
 }

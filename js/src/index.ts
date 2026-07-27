@@ -9,6 +9,45 @@ export {
   type ConvexConfig,
 } from "./backends/index.js";
 
+// OAuth
+export {
+  GitHubOAuth,
+  GoogleOAuth,
+  getOAuthProvider,
+  OAUTH_PROVIDERS,
+  type OAuthConfig,
+  type OAuthUserInfo,
+  type OAuthProvider,
+} from "./oauth.js";
+
+// Subdomain utilities
+export {
+  parseHost,
+  validateSubdomain,
+  buildTenantUrl,
+  getCurrentSubdomain,
+  suggestSubdomains,
+  type SubdomainConfig,
+  type ParsedHost,
+} from "./subdomain.js";
+
+// Roles
+export {
+  RoleLevel,
+  STANDARD_ROLES,
+  VIEWER,
+  MEMBER,
+  ADMIN,
+  OWNER,
+  PLATFORM_OWNER,
+  hasPermission,
+  isAtLeast,
+  getRole,
+  getRolesAtLevel,
+  checkPermission,
+  type Role,
+} from "./roles.js";
+
 // Auth components (React)
 export {
   AuthProvider,
@@ -17,6 +56,7 @@ export {
   SignupScreen,
   LogoutScreen,
   Header,
+  TenantSelector,
   type AuthContextType,
   type AuthProviderProps,
   type User,
@@ -24,6 +64,8 @@ export {
   type SignupScreenProps,
   type LogoutScreenProps,
   type HeaderProps,
+  type TenantSelectorProps,
+  type LoginMethod,
 } from "./components/index.js";
 
 // CLI
