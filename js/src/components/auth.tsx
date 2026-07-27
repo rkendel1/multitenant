@@ -911,3 +911,366 @@ export function TenantSelector({
     </div>
   );
 }
+
+// ============================================================================
+// Dashboard Component (Subdomain-Scoped)
+// ============================================================================
+
+const dashboardStyles = {
+  container: {
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    minHeight: '100vh',
+    backgroundColor: '#f9fafb',
+  },
+  main: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    padding: '2rem',
+  },
+  welcome: {
+    marginBottom: '2rem',
+  },
+  welcomeTitle: {
+    fontSize: '1.75rem',
+    fontWeight: 600,
+    color: '#111827',
+    marginBottom: '0.5rem',
+  },
+  welcomeSubtitle: {
+    color: '#6b7280',
+  },
+  statsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '1.5rem',
+    marginBottom: '2rem',
+  },
+  statCard: {
+    backgroundColor: '#ffffff',
+    padding: '1.5rem',
+    borderRadius: '0.5rem',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+  },
+  statLabel: {
+    fontSize: '0.875rem',
+    color: '#6b7280',
+    marginBottom: '0.5rem',
+  },
+  statValue: {
+    fontSize: '2rem',
+    fontWeight: 600,
+    color: '#111827',
+  },
+  section: {
+    backgroundColor: '#ffffff',
+    padding: '1.5rem',
+    borderRadius: '0.5rem',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    marginBottom: '1.5rem',
+  },
+  sectionTitle: {
+    fontSize: '1.125rem',
+    fontWeight: 600,
+    color: '#111827',
+    marginBottom: '1rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  activityList: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '0.75rem',
+  },
+  activityItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    padding: '0.75rem',
+    backgroundColor: '#f9fafb',
+    borderRadius: '0.375rem',
+  },
+  activityIcon: {
+    width: '2rem',
+    height: '2rem',
+    borderRadius: '50%',
+    backgroundColor: '#e0e7ff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.875rem',
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontWeight: 500,
+    color: '#111827',
+  },
+  activityTime: {
+    fontSize: '0.75rem',
+    color: '#6b7280',
+  },
+  quickActions: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: '1rem',
+  },
+  actionButton: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: '0.5rem',
+    padding: '1.25rem',
+    backgroundColor: '#f9fafb',
+    border: '1px solid #e5e7eb',
+    borderRadius: '0.5rem',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    textDecoration: 'none',
+    color: '#374151',
+  },
+  actionIcon: {
+    fontSize: '1.5rem',
+  },
+  actionLabel: {
+    fontSize: '0.875rem',
+    fontWeight: 500,
+  },
+  tenantInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    padding: '1rem',
+    backgroundColor: '#f0f9ff',
+    borderRadius: '0.5rem',
+    marginBottom: '1.5rem',
+    border: '1px solid #bae6fd',
+  },
+  tenantBadge: {
+    padding: '0.25rem 0.75rem',
+    backgroundColor: '#0ea5e9',
+    color: '#ffffff',
+    borderRadius: '9999px',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+  },
+  tenantName: {
+    fontWeight: 600,
+    color: '#0369a1',
+  },
+  tenantSlug: {
+    fontSize: '0.875rem',
+    color: '#0284c7',
+  },
+  emptyState: {
+    textAlign: 'center' as const,
+    padding: '3rem',
+    color: '#6b7280',
+  },
+};
+
+export interface DashboardStat {
+  label: string;
+  value: string | number;
+  icon?: string;
+}
+
+export interface DashboardActivity {
+  id: string;
+  title: string;
+  timestamp: string;
+  icon?: string;
+}
+
+export interface DashboardAction {
+  label: string;
+  icon: string;
+  href?: string;
+  onClick?: () => void;
+}
+
+export interface DashboardProps {
+  /** Custom stats to display */
+  stats?: DashboardStat[];
+  /** Recent activity items */
+  activities?: DashboardActivity[];
+  /** Quick action buttons */
+  actions?: DashboardAction[];
+  /** Custom content to render in the main area */
+  children?: ReactNode;
+  /** Whether to show the header */
+  showHeader?: boolean;
+  /** Header props */
+  headerProps?: HeaderProps;
+  /** Called when no tenant is found */
+  onNoTenant?: () => void;
+  /** Link to redirect when no tenant */
+  noTenantRedirect?: string;
+}
+
+export function Dashboard({
+  stats,
+  activities,
+  actions,
+  children,
+  showHeader = true,
+  headerProps,
+  onNoTenant,
+  noTenantRedirect = '/',
+}: DashboardProps) {
+  const { user, currentTenant, isLoading, isAuthenticated } = useAuth();
+
+  // Handle loading state
+  if (isLoading) {
+    return (
+      <div style={dashboardStyles.container}>
+        {showHeader && <Header {...headerProps} tenant={currentTenant} />}
+        <main style={dashboardStyles.main}>
+          <div style={dashboardStyles.emptyState}>
+            <p>Loading...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Handle unauthenticated state
+  if (!isAuthenticated || !user) {
+    if (typeof window !== 'undefined' && noTenantRedirect) {
+      window.location.href = noTenantRedirect;
+    }
+    return null;
+  }
+
+  // Handle no tenant state (not on a subdomain)
+  if (!currentTenant) {
+    if (onNoTenant) {
+      onNoTenant();
+    } else if (typeof window !== 'undefined' && noTenantRedirect) {
+      window.location.href = noTenantRedirect;
+    }
+    return (
+      <div style={dashboardStyles.container}>
+        {showHeader && <Header {...headerProps} />}
+        <main style={dashboardStyles.main}>
+          <div style={dashboardStyles.emptyState}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏢</div>
+            <p>No workspace selected. Please select a workspace to continue.</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Default stats if none provided
+  const displayStats: DashboardStat[] = stats || [
+    { label: 'Team Members', value: '—', icon: '👥' },
+    { label: 'Projects', value: '—', icon: '📁' },
+    { label: 'Tasks', value: '—', icon: '✓' },
+    { label: 'Activity', value: '—', icon: '📊' },
+  ];
+
+  // Default actions if none provided
+  const displayActions: DashboardAction[] = actions || [
+    { label: 'Team', icon: '👥', href: '/team' },
+    { label: 'Projects', icon: '📁', href: '/projects' },
+    { label: 'Settings', icon: '⚙️', href: '/settings' },
+    { label: 'Invite', icon: '✉️', href: '/invite' },
+  ];
+
+  return (
+    <div style={dashboardStyles.container}>
+      {showHeader && <Header {...headerProps} tenant={currentTenant} />}
+
+      <main style={dashboardStyles.main}>
+        {/* Tenant Info Banner */}
+        <div style={dashboardStyles.tenantInfo}>
+          <span style={dashboardStyles.tenantBadge}>Workspace</span>
+          <div>
+            <div style={dashboardStyles.tenantName}>{currentTenant.name}</div>
+            <div style={dashboardStyles.tenantSlug}>{currentTenant.slug}</div>
+          </div>
+        </div>
+
+        {/* Welcome Section */}
+        <div style={dashboardStyles.welcome}>
+          <h1 style={dashboardStyles.welcomeTitle}>
+            Welcome back, {user.username}!
+          </h1>
+          <p style={dashboardStyles.welcomeSubtitle}>
+            Here's what's happening in {currentTenant.name}
+          </p>
+        </div>
+
+        {/* Stats Grid */}
+        <div style={dashboardStyles.statsGrid}>
+          {displayStats.map((stat, index) => (
+            <div key={index} style={dashboardStyles.statCard}>
+              <div style={dashboardStyles.statLabel}>
+                {stat.icon && <span style={{ marginRight: '0.5rem' }}>{stat.icon}</span>}
+                {stat.label}
+              </div>
+              <div style={dashboardStyles.statValue}>{stat.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Custom content */}
+        {children}
+
+        {/* Quick Actions */}
+        <section style={dashboardStyles.section}>
+          <h2 style={dashboardStyles.sectionTitle}>
+            <span>⚡</span> Quick Actions
+          </h2>
+          <div style={dashboardStyles.quickActions}>
+            {displayActions.map((action, index) => (
+              action.onClick ? (
+                <button
+                  key={index}
+                  style={dashboardStyles.actionButton}
+                  onClick={action.onClick}
+                >
+                  <span style={dashboardStyles.actionIcon}>{action.icon}</span>
+                  <span style={dashboardStyles.actionLabel}>{action.label}</span>
+                </button>
+              ) : (
+                <a
+                  key={index}
+                  style={dashboardStyles.actionButton}
+                  href={action.href}
+                >
+                  <span style={dashboardStyles.actionIcon}>{action.icon}</span>
+                  <span style={dashboardStyles.actionLabel}>{action.label}</span>
+                </a>
+              )
+            ))}
+          </div>
+        </section>
+
+        {/* Recent Activity */}
+        {activities && activities.length > 0 && (
+          <section style={dashboardStyles.section}>
+            <h2 style={dashboardStyles.sectionTitle}>
+              <span>📋</span> Recent Activity
+            </h2>
+            <div style={dashboardStyles.activityList}>
+              {activities.map((activity) => (
+                <div key={activity.id} style={dashboardStyles.activityItem}>
+                  <div style={dashboardStyles.activityIcon}>
+                    {activity.icon || '📌'}
+                  </div>
+                  <div style={dashboardStyles.activityContent}>
+                    <div style={dashboardStyles.activityTitle}>{activity.title}</div>
+                    <div style={dashboardStyles.activityTime}>{activity.timestamp}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+    </div>
+  );
+}

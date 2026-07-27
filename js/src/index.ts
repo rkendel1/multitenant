@@ -57,6 +57,7 @@ export {
   LogoutScreen,
   Header,
   TenantSelector,
+  Dashboard,
   type AuthContextType,
   type AuthProviderProps,
   type User,
@@ -65,6 +66,10 @@ export {
   type LogoutScreenProps,
   type HeaderProps,
   type TenantSelectorProps,
+  type DashboardProps,
+  type DashboardStat,
+  type DashboardActivity,
+  type DashboardAction,
   type LoginMethod,
 } from "./components/index.js";
 
