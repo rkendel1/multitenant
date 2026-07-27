@@ -1,3 +1,8 @@
+"""Tenant context is stored per-thread for sync request handling.
+
+For async execution, prefer explicit context passing.
+"""
+
 from threading import local
 
 _state = local()

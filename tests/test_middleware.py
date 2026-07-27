@@ -98,6 +98,20 @@ class TenantMiddlewareTests(SimpleTestCase):
             with self.assertRaises(ImproperlyConfigured):
                 resolve_tenant_from_request(RequestStub("dup.test"))
 
+    @override_settings(MULTITENANT_TENANT_MODEL="app.Tenant")
+    def test_model_resolution_returns_none_for_missing_tenant(self):
+        class FakeManager:
+            def get(self, **kwargs):
+                raise FakeModel.DoesNotExist("none")
+
+        class FakeModel:
+            DoesNotExist = type("DoesNotExist", (Exception,), {})
+            MultipleObjectsReturned = type("MultipleObjectsReturned", (Exception,), {})
+            _default_manager = FakeManager()
+
+        with patch("multitenant.middleware.apps.get_model", return_value=FakeModel):
+            self.assertIsNone(resolve_tenant_from_request(RequestStub("missing.test")))
+
 
 if __name__ == "__main__":
     unittest.main()
