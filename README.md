@@ -48,6 +48,45 @@ from multitenant import get_current_tenant
 tenant = get_current_tenant()
 ```
 
+### Authentication Views
+
+The package includes ready-to-use authentication views with templates.
+
+Add to your `urls.py`:
+
+```python
+from django.urls import include, path
+
+urlpatterns = [
+    path("auth/", include("multitenant.urls")),
+]
+```
+
+Available URLs:
+- `/auth/login/` - Login page
+- `/auth/signup/` - Registration page
+- `/auth/logout/` - Logout confirmation page
+- `/auth/profile/` - User profile page (requires login)
+
+Configure redirects in settings:
+
+```python
+MULTITENANT_LOGIN_REDIRECT_URL = "/"
+MULTITENANT_LOGOUT_REDIRECT_URL = "/"
+LOGIN_URL = "multitenant:login"
+```
+
+### Configuration Wizard
+
+Run the interactive configuration wizard:
+
+```bash
+python manage.py configure_multitenant
+```
+
+Options:
+- `--output <file>` - Write configuration to a file instead of stdout
+
 ---
 
 ## JavaScript / TypeScript
@@ -83,6 +122,88 @@ app.use(tenantMiddleware({ backend }));
 app.get("/", (req, res) => {
   res.json({ tenant: req.tenant ?? getCurrentTenant() });
 });
+```
+
+### React Authentication Components
+
+The package includes React components for authentication with built-in styling.
+
+```tsx
+import {
+  AuthProvider,
+  Header,
+  LoginScreen,
+  SignupScreen,
+  LogoutScreen,
+} from "@multitenant/core";
+
+function App() {
+  return (
+    <AuthProvider apiBaseUrl="/api/auth">
+      <Header brandName="My App" />
+      {/* Your routes */}
+    </AuthProvider>
+  );
+}
+
+// Login page
+function LoginPage() {
+  return <LoginScreen onSuccess={() => navigate("/")} />;
+}
+
+// Signup page
+function SignupPage() {
+  return <SignupScreen onSuccess={() => navigate("/")} />;
+}
+
+// Logout page
+function LogoutPage() {
+  return <LogoutScreen onSuccess={() => navigate("/")} />;
+}
+```
+
+#### AuthProvider Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `apiBaseUrl` | `string` | `/api/auth` | Base URL for auth API endpoints |
+| `onLoginSuccess` | `(user) => void` | - | Callback when login succeeds |
+| `onLogoutSuccess` | `() => void` | - | Callback when logout succeeds |
+
+#### Header Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `brandName` | `string` | `Multitenant App` | Brand name to display |
+| `tenant` | `{ name: string }` | - | Current tenant info |
+| `loginLink` | `string` | `/login` | Link to login page |
+| `signupLink` | `string` | `/signup` | Link to signup page |
+
+#### useAuth Hook
+
+```ts
+const {
+  user,           // Current user or null
+  isLoading,      // Loading state
+  isAuthenticated,// Whether user is logged in
+  login,          // Login function
+  signup,         // Signup function
+  logout,         // Logout function
+} = useAuth();
+```
+
+### Configuration Wizard (CLI)
+
+Run the interactive configuration wizard:
+
+```bash
+npx @multitenant/core configure
+```
+
+Or after installation:
+
+```bash
+multitenant-configure
 ```
 
 ---

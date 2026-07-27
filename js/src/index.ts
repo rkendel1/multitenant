@@ -8,3 +8,23 @@ export {
   ConvexBackend,
   type ConvexConfig,
 } from "./backends/index.js";
+
+// Auth components (React)
+export {
+  AuthProvider,
+  useAuth,
+  LoginScreen,
+  SignupScreen,
+  LogoutScreen,
+  Header,
+  type AuthContextType,
+  type AuthProviderProps,
+  type User,
+  type LoginScreenProps,
+  type SignupScreenProps,
+  type LogoutScreenProps,
+  type HeaderProps,
+} from "./components/index.js";
+
+// CLI
+export { ConfigureWizard } from "./cli/index.js";
