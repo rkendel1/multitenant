@@ -49,6 +49,11 @@ class TenantMiddlewareTests(SimpleTestCase):
         self.assertEqual(request.tenant, observed["tenant"])
         self.assertIsNone(get_current_tenant())
 
+    @override_settings(MULTITENANT_TENANT_RESOLVER=lambda host, request: host)
+    def test_host_without_port_is_normalized(self):
+        tenant = resolve_tenant_from_request(RequestStub("Example.com"))
+        self.assertEqual("example.com", tenant)
+
     @override_settings()
     def test_resolve_returns_none_without_resolver_or_model(self):
         self.assertIsNone(resolve_tenant_from_request(RequestStub("none.test")))
