@@ -1,0 +1,23 @@
+{
+  "name": "@multitenant/core",
+  "version": "0.1.0",
+  "description": "Drop-in multitenancy helpers for Node.js/TypeScript projects",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "keywords": ["multitenant", "tenant", "middleware"],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "peerDependencies": {
+    "pg": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "pg": { "optional": true }
+  }
+}
