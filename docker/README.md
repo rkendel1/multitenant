@@ -289,17 +289,28 @@ docker compose up -d --build
 
 ## Production Considerations
 
-For production deployments:
+⚠️ **SECURITY WARNING**: The default configuration is for development only. Before deploying to production:
 
-1. **Change default passwords** in `.env`
+### Critical Security Steps
+
+1. **🔐 CHANGE ALL DEFAULT PASSWORDS IMMEDIATELY**
+   - The default passwords (`multitenant_secret`, `CHANGE_ME_BEFORE_PRODUCTION`) are **insecure and publicly known**
+   - Generate strong, unique passwords for:
+     - `POSTGRES_PASSWORD`
+     - `MULTITENANT_ADMIN_PASSWORD`
+     - Any other secrets
+
 2. **Use Convex Cloud** instead of local mock
+   - The local Convex server is a development mock only
+   - For production, use [Convex Cloud](https://convex.dev)
+
 3. **Enable SSL/TLS** for database connections
 4. **Set up proper backups** for PostgreSQL
 5. **Use secrets management** (Docker Secrets, Vault, etc.)
 6. **Configure resource limits** for containers
 7. **Set up monitoring** (Prometheus, Grafana, etc.)
 
-Example production compose override:
+### Example production compose override:
 
 ```yaml
 # docker-compose.prod.yml
