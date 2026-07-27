@@ -31,18 +31,31 @@ echo "✓ Database is ready"
 
 # Run migrations
 echo "→ Running database migrations..."
-python manage.py migrate --noinput || echo "  (No migrations to apply or migrations failed)"
+if python manage.py migrate --noinput; then
+    echo "✓ Migrations applied successfully"
+else
+    echo "⚠ Migration failed - check database connection and migration files"
+    # Don't exit, allow app to start (migrations might already be applied)
+fi
 
 # Collect static files (if STATIC_ROOT is set)
 if [ -n "$STATIC_ROOT" ]; then
     echo "→ Collecting static files..."
-    python manage.py collectstatic --noinput --clear || echo "  (Static collection skipped)"
+    if python manage.py collectstatic --noinput --clear; then
+        echo "✓ Static files collected"
+    else
+        echo "⚠ Static collection failed - check STATIC_ROOT configuration"
+    fi
 fi
 
 # Create platform owner if configured
 if [ -n "$MULTITENANT_ADMIN_EMAIL" ] && [ -n "$MULTITENANT_ADMIN_PASSWORD" ]; then
     echo "→ Setting up platform owner..."
-    python manage.py setup_platform 2>/dev/null || echo "  (Platform already configured)"
+    if python manage.py setup_platform 2>/dev/null; then
+        echo "✓ Platform owner configured"
+    else
+        echo "  (Platform owner already exists or setup_platform command not available)"
+    fi
 fi
 
 echo ""

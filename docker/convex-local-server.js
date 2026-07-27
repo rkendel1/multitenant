@@ -29,6 +29,54 @@ const DATA_DIR = process.env.CONVEX_DATA_DIR || '/app/data';
 app.use(cors());
 app.use(express.json());
 
+// =============================================================================
+// Security: Prevent Prototype Pollution
+// =============================================================================
+
+/**
+ * Validates that a key is safe to use as an object property.
+ * Prevents prototype pollution attacks.
+ */
+function isValidKey(key) {
+  if (typeof key !== 'string') return false;
+  const forbidden = ['__proto__', 'constructor', 'prototype'];
+  return !forbidden.includes(key);
+}
+
+/**
+ * Safely set a property on an object, rejecting dangerous keys.
+ */
+function safeSet(obj, key, value) {
+  if (!isValidKey(key)) {
+    throw new Error(`Invalid key: ${key}`);
+  }
+  obj[key] = value;
+}
+
+/**
+ * Safely get a property from an object.
+ */
+function safeGet(obj, key) {
+  if (!isValidKey(key)) {
+    return undefined;
+  }
+  return Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : undefined;
+}
+
+/**
+ * Safely delete a property from an object.
+ */
+function safeDelete(obj, key) {
+  if (!isValidKey(key)) {
+    return false;
+  }
+  if (Object.prototype.hasOwnProperty.call(obj, key)) {
+    delete obj[key];
+    return true;
+  }
+  return false;
+}
+
 // In-memory storage (persisted to disk)
 let store = {
   tenants: {},
@@ -67,7 +115,7 @@ const queryHandlers = {
   },
 
   'tenants:getById': ({ id }) => {
-    return store.tenants[id] || null;
+    return safeGet(store.tenants, id) || null;
   },
 
   'tenants:list': () => {
@@ -77,11 +125,11 @@ const queryHandlers = {
   'tenants:listForUser': ({ userId }) => {
     const membershipList = Object.values(store.memberships)
       .filter(m => m.userId === userId);
-    return membershipList.map(m => store.tenants[m.tenantId]).filter(Boolean);
+    return membershipList.map(m => safeGet(store.tenants, m.tenantId)).filter(Boolean);
   },
 
   'users:getById': ({ id }) => {
-    return store.users[id] || null;
+    return safeGet(store.users, id) || null;
   },
 
   'users:getByEmail': ({ email }) => {
@@ -90,7 +138,7 @@ const queryHandlers = {
 
   'memberships:get': ({ userId, tenantId }) => {
     const key = `${userId}:${tenantId}`;
-    return store.memberships[key] || null;
+    return safeGet(store.memberships, key) || null;
   },
 
   'memberships:listForTenant': ({ tenantId }) => {
@@ -114,31 +162,34 @@ const mutationHandlers = {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    store.tenants[id] = tenant;
+    safeSet(store.tenants, id, tenant);
     persistData();
     return tenant;
   },
 
   'tenants:update': ({ id, name, slug }) => {
-    if (!store.tenants[id]) {
+    const tenant = safeGet(store.tenants, id);
+    if (!tenant) {
       throw new Error(`Tenant not found: ${id}`);
     }
-    if (name) store.tenants[id].name = name;
-    if (slug) store.tenants[id].slug = slug;
-    store.tenants[id].updatedAt = Date.now();
+    if (name) tenant.name = name;
+    if (slug) tenant.slug = slug;
+    tenant.updatedAt = Date.now();
     persistData();
-    return store.tenants[id];
+    return tenant;
   },
 
   'tenants:delete': ({ id }) => {
-    if (!store.tenants[id]) {
+    const tenant = safeGet(store.tenants, id);
+    if (!tenant) {
       throw new Error(`Tenant not found: ${id}`);
     }
-    delete store.tenants[id];
+    safeDelete(store.tenants, id);
     // Also delete related memberships
     Object.keys(store.memberships).forEach(key => {
-      if (store.memberships[key].tenantId === id) {
-        delete store.memberships[key];
+      const membership = safeGet(store.memberships, key);
+      if (membership && membership.tenantId === id) {
+        safeDelete(store.memberships, key);
       }
     });
     persistData();
@@ -155,20 +206,21 @@ const mutationHandlers = {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    store.users[id] = user;
+    safeSet(store.users, id, user);
     persistData();
     return user;
   },
 
   'users:update': ({ id, name, email }) => {
-    if (!store.users[id]) {
+    const user = safeGet(store.users, id);
+    if (!user) {
       throw new Error(`User not found: ${id}`);
     }
-    if (name) store.users[id].name = name;
-    if (email) store.users[id].email = email;
-    store.users[id].updatedAt = Date.now();
+    if (name) user.name = name;
+    if (email) user.email = email;
+    user.updatedAt = Date.now();
     persistData();
-    return store.users[id];
+    return user;
   },
 
   'memberships:create': ({ userId, tenantId, role }) => {
@@ -181,28 +233,30 @@ const mutationHandlers = {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    store.memberships[key] = membership;
+    safeSet(store.memberships, key, membership);
     persistData();
     return membership;
   },
 
   'memberships:updateRole': ({ userId, tenantId, role }) => {
     const key = `${userId}:${tenantId}`;
-    if (!store.memberships[key]) {
+    const membership = safeGet(store.memberships, key);
+    if (!membership) {
       throw new Error(`Membership not found: ${key}`);
     }
-    store.memberships[key].role = role;
-    store.memberships[key].updatedAt = Date.now();
+    membership.role = role;
+    membership.updatedAt = Date.now();
     persistData();
-    return store.memberships[key];
+    return membership;
   },
 
   'memberships:delete': ({ userId, tenantId }) => {
     const key = `${userId}:${tenantId}`;
-    if (!store.memberships[key]) {
+    const membership = safeGet(store.memberships, key);
+    if (!membership) {
       throw new Error(`Membership not found: ${key}`);
     }
-    delete store.memberships[key];
+    safeDelete(store.memberships, key);
     persistData();
     return { success: true };
   },
@@ -307,12 +361,13 @@ app.post('/api/debug/reset', (req, res) => {
 // =============================================================================
 
 app.listen(PORT, '0.0.0.0', () => {
+  const portStr = String(PORT).padEnd(5);
   console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
 ║   🚀 Local Convex Development Server                         ║
 ║                                                               ║
-║   Server running at http://0.0.0.0:${PORT}                      ║
+║   Server running at http://0.0.0.0:${portStr}                   ║
 ║                                                               ║
 ║   Endpoints:                                                  ║
 ║   • POST /api/query     - Execute queries                     ║
